@@ -1,0 +1,93 @@
+from flask import jsonify, request, render_template
+from app import app, db
+from models import User, Task
+from sqlalchemy import func
+import json
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/tasks', methods=['GET'])
+def get_tasks():
+    tasks = Task.query.all()
+    return jsonify([{
+        'id': task.id,
+        'content': task.content,
+        'completed': task.completed,
+        'user_id': task.user_id,
+        'date_created': task.date_created.isoformat()
+    } for task in tasks])
+
+@app.route('/tasks', methods=['POST'])
+def create_task():
+    data = request.json
+    new_task = Task(content=data['content'], user_id=data['user_id'])
+    db.session.add(new_task)
+    db.session.commit()
+    return jsonify({
+        'id': new_task.id,
+        'content': new_task.content,
+        'completed': new_task.completed,
+        'user_id': new_task.user_id,
+        'date_created': new_task.date_created.isoformat()
+    }), 201
+
+@app.route('/tasks/<int:task_id>', methods=['PUT'])
+def update_task(task_id):
+    task = Task.query.get_or_404(task_id)
+    data = request.json
+    task.completed = data['completed']
+    db.session.commit()
+    return jsonify({
+        'id': task.id,
+        'content': task.content,
+        'completed': task.completed,
+        'user_id': task.user_id,
+        'date_created': task.date_created.isoformat()
+    })
+
+@app.route('/tasks/<int:task_id>', methods=['DELETE'])
+def delete_task(task_id):
+    task = Task.query.get_or_404(task_id)
+    db.session.delete(task)
+    db.session.commit()
+    return '', 204
+
+@app.route('/progress', methods=['GET'])
+def get_progress():
+    timeframe = request.args.get('timeframe', '30')
+    timeframe = int(timeframe)
+    
+    progress = db.session.query(
+        User.name,
+        func.count(Task.id).label('total_tasks'),
+        func.sum(Task.completed.cast(db.Integer)).label('completed_tasks')
+    ).join(Task).filter(
+        func.date(Task.date_created) >= func.current_date() - timeframe
+    ).group_by(User.name).all()
+    
+    return jsonify([{
+        'name': p.name,
+        'total_tasks': p.total_tasks,
+        'completed_tasks': p.completed_tasks
+    } for p in progress])
+
+@app.route('/export', methods=['GET'])
+def export_data():
+    timeframe = request.args.get('timeframe', '30')
+    timeframe = int(timeframe)
+    
+    tasks = Task.query.filter(
+        func.date(Task.date_created) >= func.current_date() - timeframe
+    ).all()
+    
+    export_data = [{
+        'id': task.id,
+        'content': task.content,
+        'completed': task.completed,
+        'user_id': task.user_id,
+        'date_created': task.date_created.isoformat()
+    } for task in tasks]
+    
+    return jsonify(export_data)
