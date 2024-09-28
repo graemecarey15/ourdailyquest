@@ -5,10 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const exportBtn = document.getElementById('export-btn');
     let chart;
 
-    // Initialize tasks
     fetchTasks();
-
-    // Initialize progress chart
     initChart();
 
     taskForms.forEach(form => {
@@ -16,7 +13,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     timeframeSelect.addEventListener('change', updateProgress);
-    exportBtn.addEventListener('click', exportData);
+
+    if (exportBtn) {
+        console.log('Export button found');
+        exportBtn.addEventListener('click', exportData);
+    } else {
+        console.error('Export button not found');
+    }
 
     function fetchTasks() {
         fetch('/tasks')
@@ -163,10 +166,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function exportData() {
+        console.log('Export function called');
         const timeframe = timeframeSelect.value;
+        console.log('Selected timeframe:', timeframe);
         fetch(`/export?timeframe=${timeframe}`)
-            .then(response => response.json())
+            .then(response => {
+                console.log('Export response received');
+                return response.json();
+            })
             .then(data => {
+                console.log('Export data received:', data);
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -176,6 +185,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
+                console.log('Export completed');
+            })
+            .catch(error => {
+                console.error('Export error:', error);
             });
     }
 });
