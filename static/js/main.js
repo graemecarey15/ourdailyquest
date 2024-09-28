@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function() {
             data: {
                 labels: ['G', 'A'],
                 datasets: [{
-                    label: 'Completed Tasks',
+                    label: 'Completion Percentage',
                     data: [0, 0],
                     backgroundColor: ['rgba(72, 187, 120, 0.8)', 'rgba(66, 153, 225, 0.8)'],
                     borderColor: ['rgb(72, 187, 120)', 'rgb(66, 153, 225)'],
@@ -139,8 +139,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 scales: {
                     y: {
                         beginAtZero: true,
+                        max: 100,
                         ticks: {
-                            stepSize: 1
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.parsed.y.toFixed(2) + '%';
+                            }
                         }
                     }
                 }
@@ -153,15 +165,15 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`/progress?timeframe=${timeframe}`)
             .then(response => response.json())
             .then(data => {
-                const gProgress = data.find(p => p.name === 'G') || { completed_tasks: 0, total_tasks: 0 };
-                const aProgress = data.find(p => p.name === 'A') || { completed_tasks: 0, total_tasks: 0 };
+                const gProgress = data.find(p => p.name === 'G') || { completion_percentage: 0, completed_tasks: 0, total_tasks: 0 };
+                const aProgress = data.find(p => p.name === 'A') || { completion_percentage: 0, completed_tasks: 0, total_tasks: 0 };
                 
-                chart.data.datasets[0].data = [gProgress.completed_tasks, aProgress.completed_tasks];
-                chart.data.datasets[0].label = `Completed Tasks (Last ${timeframe} days)`;
+                chart.data.datasets[0].data = [gProgress.completion_percentage, aProgress.completion_percentage];
+                chart.data.datasets[0].label = `Completion Percentage (Last ${timeframe} days)`;
                 chart.update();
 
-                document.getElementById('g-progress').textContent = `${gProgress.completed_tasks}/${gProgress.total_tasks}`;
-                document.getElementById('a-progress').textContent = `${aProgress.completed_tasks}/${aProgress.total_tasks}`;
+                document.getElementById('g-progress').textContent = `${gProgress.completion_percentage.toFixed(2)}% (${gProgress.completed_tasks}/${gProgress.total_tasks})`;
+                document.getElementById('a-progress').textContent = `${aProgress.completion_percentage.toFixed(2)}% (${aProgress.completed_tasks}/${aProgress.total_tasks})`;
             });
     }
 

@@ -73,7 +73,8 @@ def get_progress():
     return jsonify([{
         'name': p.name,
         'total_tasks': p.total_tasks,
-        'completed_tasks': p.completed_tasks
+        'completed_tasks': p.completed_tasks,
+        'completion_percentage': round((p.completed_tasks / p.total_tasks) * 100, 2) if p.total_tasks > 0 else 0
     } for p in progress])
 
 @app.route('/export', methods=['GET'])
