@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     fetchTasks();
     initChart();
+    updateProgress(); // Call updateProgress on page load
 
     taskForms.forEach(form => {
         form.addEventListener('submit', addTask);
