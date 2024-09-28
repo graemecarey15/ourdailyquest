@@ -5,9 +5,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const exportBtn = document.getElementById('export-btn');
     let chart;
 
+    console.log('DOM fully loaded');
+
+    // Fetch tasks after DOM is loaded
     fetchTasks();
     initChart();
-    updateProgress(); // Call updateProgress on page load
+    updateProgress();
 
     taskForms.forEach(form => {
         form.addEventListener('submit', addTask);
@@ -22,18 +25,33 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Export button not found');
     }
 
+    function addTaskEventListeners() {
+        document.querySelectorAll('.toggle-task').forEach(btn => {
+            btn.addEventListener('click', toggleTask);
+        });
+        document.querySelectorAll('.delete-task').forEach(btn => {
+            btn.addEventListener('click', deleteTask);
+        });
+    }
+
     function fetchTasks() {
+        console.log('Fetching tasks...');
         fetch('/tasks')
             .then(response => response.json())
             .then(tasks => {
+                console.log('Tasks fetched:', tasks);
                 const gTasks = tasks.filter(task => task.user_id === 1);
                 const aTasks = tasks.filter(task => task.user_id === 2);
                 renderTasks(gTasks, taskLists[0]);
                 renderTasks(aTasks, taskLists[1]);
+            })
+            .catch(error => {
+                console.error('Error fetching tasks:', error);
             });
     }
 
     function renderTasks(tasks, taskList) {
+        console.log('Rendering tasks for list:', taskList);
         taskList.innerHTML = '';
         tasks.forEach(task => {
             const li = document.createElement('li');
@@ -78,15 +96,6 @@ document.addEventListener('DOMContentLoaded', function() {
             input.value = '';
             addTaskEventListeners();
             updateProgress();
-        });
-    }
-
-    function addTaskEventListeners() {
-        document.querySelectorAll('.toggle-task').forEach(btn => {
-            btn.addEventListener('click', toggleTask);
-        });
-        document.querySelectorAll('.delete-task').forEach(btn => {
-            btn.addEventListener('click', deleteTask);
         });
     }
 
