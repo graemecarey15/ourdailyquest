@@ -83,16 +83,17 @@ def export_data():
     
     start_date = datetime.utcnow().date() - timedelta(days=timeframe)
     
-    tasks = Task.query.filter(
+    tasks = db.session.query(Task, User.name.label('user_name')).join(User).filter(
         func.date(Task.date_created) >= start_date
     ).all()
     
     export_data = [{
-        'id': task.id,
-        'content': task.content,
-        'completed': task.completed,
-        'user_id': task.user_id,
-        'date_created': task.date_created.isoformat()
+        'id': task.Task.id,
+        'content': task.Task.content,
+        'completed': task.Task.completed,
+        'user_id': task.Task.user_id,
+        'user_name': task.user_name,
+        'date_created': task.Task.date_created.isoformat()
     } for task in tasks]
     
     return jsonify(export_data)
