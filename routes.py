@@ -3,6 +3,7 @@ from app import app, db
 from models import User, Task
 from sqlalchemy import func
 import json
+from datetime import datetime, timedelta
 
 @app.route('/')
 def index():
@@ -59,12 +60,14 @@ def get_progress():
     timeframe = request.args.get('timeframe', '30')
     timeframe = int(timeframe)
     
+    start_date = datetime.utcnow().date() - timedelta(days=timeframe)
+    
     progress = db.session.query(
         User.name,
         func.count(Task.id).label('total_tasks'),
         func.sum(Task.completed.cast(db.Integer)).label('completed_tasks')
     ).join(Task).filter(
-        func.date(Task.date_created) >= func.current_date() - timeframe
+        func.date(Task.date_created) >= start_date
     ).group_by(User.name).all()
     
     return jsonify([{
@@ -78,8 +81,10 @@ def export_data():
     timeframe = request.args.get('timeframe', '30')
     timeframe = int(timeframe)
     
+    start_date = datetime.utcnow().date() - timedelta(days=timeframe)
+    
     tasks = Task.query.filter(
-        func.date(Task.date_created) >= func.current_date() - timeframe
+        func.date(Task.date_created) >= start_date
     ).all()
     
     export_data = [{
