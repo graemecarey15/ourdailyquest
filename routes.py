@@ -7,7 +7,8 @@ from datetime import datetime, timedelta
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    current_date = datetime.now().strftime("%A, %B %d, %Y")
+    return render_template('index.html', current_date=current_date)
 
 @app.route('/tasks', methods=['GET'])
 def get_tasks():
