@@ -78,35 +78,6 @@ def get_progress():
         'completion_percentage': round((p.completed_tasks / p.total_tasks) * 100, 2) if p.total_tasks > 0 else 0
     } for p in progress])
 
-@app.route('/daily_progress', methods=['GET'])
-def get_daily_progress():
-    timeframe = request.args.get('timeframe', '30')
-    timeframe = int(timeframe)
-    
-    start_date = datetime.utcnow().date() - timedelta(days=timeframe)
-    
-    daily_progress = db.session.query(
-        User.name,
-        func.date(Task.date_created).label('date'),
-        func.count(Task.id).label('total_tasks'),
-        func.sum(Task.completed.cast(db.Integer)).label('completed_tasks')
-    ).join(Task).filter(
-        func.date(Task.date_created) >= start_date
-    ).group_by(User.name, func.date(Task.date_created)).all()
-    
-    result = {}
-    for p in daily_progress:
-        if p.name not in result:
-            result[p.name] = []
-        result[p.name].append({
-            'date': p.date.isoformat(),
-            'total_tasks': p.total_tasks,
-            'completed_tasks': p.completed_tasks,
-            'completion_percentage': round((p.completed_tasks / p.total_tasks) * 100, 2) if p.total_tasks > 0 else 0
-        })
-    
-    return jsonify(result)
-
 @app.route('/export', methods=['GET'])
 def export_data():
     timeframe = request.args.get('timeframe', '30')
