@@ -25,7 +25,7 @@ agentRequireRestartOnSave = false
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python main.py"
-waitForPort = 5000
+waitForPort = 80
 
 [deployment]
 deploymentTarget = "cloudrun"
