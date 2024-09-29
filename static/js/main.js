@@ -222,6 +222,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             title: {
                                 display: true,
                                 text: 'Date'
+                            },
+                            ticks: {
+                                source: 'labels'
                             }
                         },
                         y: {
@@ -291,18 +294,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
 
-                const labels = [...new Set([...gProgress.map(p => p.date), ...aProgress.map(p => p.date)])].sort();
+                const startDate = new Date();
+                startDate.setDate(startDate.getDate() - parseInt(timeframe));
+                const endDate = new Date();
+
+                const labels = [];
+                for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                    labels.push(new Date(d));
+                }
 
                 console.log('Labels:', labels);
 
                 const gData = labels.map(date => {
-                    const progress = gProgress.find(p => p.date === date);
-                    return progress ? { x: new Date(date), y: progress.completion_percentage } : null;
+                    const progress = gProgress.find(p => new Date(p.date).toDateString() === date.toDateString());
+                    return progress ? { x: date, y: progress.completion_percentage } : { x: date, y: null };
                 });
 
                 const aData = labels.map(date => {
-                    const progress = aProgress.find(p => p.date === date);
-                    return progress ? { x: new Date(date), y: progress.completion_percentage } : null;
+                    const progress = aProgress.find(p => new Date(p.date).toDateString() === date.toDateString());
+                    return progress ? { x: date, y: progress.completion_percentage } : { x: date, y: null };
                 });
 
                 console.log('Processed G Data:', gData);

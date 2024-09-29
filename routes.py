@@ -65,8 +65,9 @@ def get_progress():
         timeframe = request.args.get('timeframe', '30')
         timeframe = int(timeframe)
         
-        start_date = datetime.utcnow().date() - timedelta(days=timeframe)
-        app.logger.debug(f"Timeframe: {timeframe}, Start date: {start_date}")
+        end_date = datetime.utcnow().date()
+        start_date = end_date - timedelta(days=timeframe - 1)
+        app.logger.debug(f"Timeframe: {timeframe}, Start date: {start_date}, End date: {end_date}")
         
         daily_progress = db.session.query(
             User.name,
@@ -74,31 +75,34 @@ def get_progress():
             func.count(Task.id).label('total_tasks'),
             func.sum(Task.completed.cast(db.Integer)).label('completed_tasks')
         ).join(Task).filter(
-            func.date(Task.date_created) >= start_date
+            func.date(Task.date_created).between(start_date, end_date)
         ).group_by(User.name, func.date(Task.date_created)).all()
         
         app.logger.debug(f"Daily progress query result: {daily_progress}")
         
-        progress_data = {}
-        for p in daily_progress:
-            if p.name not in progress_data:
-                progress_data[p.name] = []
-            
-            total_tasks = p.total_tasks or 0
-            completed_tasks = p.completed_tasks or 0
-            completion_percentage = round((completed_tasks / total_tasks) * 100, 2) if total_tasks > 0 else 0
-            progress_data[p.name].append({
-                'date': p.date.isoformat(),
-                'total_tasks': total_tasks,
-                'completed_tasks': completed_tasks,
-                'completion_percentage': completion_percentage
-            })
+        progress_data = {user.name: [] for user in User.query.all()}
+        date_range = [start_date + timedelta(days=i) for i in range(timeframe)]
+        
+        for date in date_range:
+            for user_name in progress_data.keys():
+                progress = next((p for p in daily_progress if p.name == user_name and p.date == date), None)
+                if progress:
+                    total_tasks = progress.total_tasks or 0
+                    completed_tasks = progress.completed_tasks or 0
+                    completion_percentage = round((completed_tasks / total_tasks) * 100, 2) if total_tasks > 0 else 0
+                else:
+                    total_tasks = 0
+                    completed_tasks = 0
+                    completion_percentage = 0
+                
+                progress_data[user_name].append({
+                    'date': date.isoformat(),
+                    'total_tasks': total_tasks,
+                    'completed_tasks': completed_tasks,
+                    'completion_percentage': completion_percentage
+                })
         
         app.logger.debug(f"Processed progress data: {json.dumps(progress_data)}")
-        
-        if not progress_data:
-            progress_data = {'G': [], 'A': []}
-        
         app.logger.info(f"Progress data: {json.dumps(progress_data)}")
         return jsonify(progress_data)
     except Exception as e:
@@ -110,10 +114,11 @@ def export_data():
     timeframe = request.args.get('timeframe', '30')
     timeframe = int(timeframe)
     
-    start_date = datetime.utcnow().date() - timedelta(days=timeframe)
+    end_date = datetime.utcnow().date()
+    start_date = end_date - timedelta(days=timeframe - 1)
     
     tasks = db.session.query(Task, User.name.label('user_name')).join(User).filter(
-        func.date(Task.date_created) >= start_date
+        func.date(Task.date_created).between(start_date, end_date)
     ).all()
     
     export_data = [{
