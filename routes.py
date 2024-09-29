@@ -58,34 +58,43 @@ def delete_task(task_id):
 
 @app.route('/progress', methods=['GET'])
 def get_progress():
-    timeframe = request.args.get('timeframe', '30')
-    timeframe = int(timeframe)
-    
-    start_date = datetime.utcnow().date() - timedelta(days=timeframe)
-    
-    daily_progress = db.session.query(
-        User.name,
-        func.date(Task.date_created).label('date'),
-        func.count(Task.id).label('total_tasks'),
-        func.sum(Task.completed.cast(db.Integer)).label('completed_tasks')
-    ).join(Task).filter(
-        func.date(Task.date_created) >= start_date
-    ).group_by(User.name, func.date(Task.date_created)).all()
-    
-    progress_data = {}
-    for p in daily_progress:
-        if p.name not in progress_data:
-            progress_data[p.name] = []
+    try:
+        timeframe = request.args.get('timeframe', '30')
+        timeframe = int(timeframe)
         
-        completion_percentage = round((p.completed_tasks / p.total_tasks) * 100, 2) if p.total_tasks > 0 else 0
-        progress_data[p.name].append({
-            'date': p.date.isoformat(),
-            'total_tasks': p.total_tasks,
-            'completed_tasks': p.completed_tasks,
-            'completion_percentage': completion_percentage
-        })
-    
-    return jsonify(progress_data)
+        start_date = datetime.utcnow().date() - timedelta(days=timeframe)
+        
+        daily_progress = db.session.query(
+            User.name,
+            func.date(Task.date_created).label('date'),
+            func.count(Task.id).label('total_tasks'),
+            func.sum(Task.completed.cast(db.Integer)).label('completed_tasks')
+        ).join(Task).filter(
+            func.date(Task.date_created) >= start_date
+        ).group_by(User.name, func.date(Task.date_created)).all()
+        
+        progress_data = {}
+        for p in daily_progress:
+            if p.name not in progress_data:
+                progress_data[p.name] = []
+            
+            completion_percentage = round((p.completed_tasks / p.total_tasks) * 100, 2) if p.total_tasks > 0 else 0
+            progress_data[p.name].append({
+                'date': p.date.isoformat(),
+                'total_tasks': p.total_tasks,
+                'completed_tasks': p.completed_tasks,
+                'completion_percentage': completion_percentage
+            })
+        
+        # If no data is available, return an empty object for each user
+        if not progress_data:
+            progress_data = {'G': [], 'A': []}
+        
+        app.logger.info(f"Progress data: {json.dumps(progress_data)}")
+        return jsonify(progress_data)
+    except Exception as e:
+        app.logger.error(f"Error in get_progress: {str(e)}")
+        return jsonify({"error": "An error occurred while fetching progress data"}), 500
 
 @app.route('/export', methods=['GET'])
 def export_data():

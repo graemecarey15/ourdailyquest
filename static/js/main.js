@@ -3,9 +3,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const taskLists = document.querySelectorAll('.task-list');
     const timeframeSelect = document.getElementById('timeframe-select');
     const exportBtn = document.getElementById('export-btn');
+    const progressChartContainer = document.querySelector('.chart-container');
+    const progressChart = document.getElementById('progress-chart');
     let chart;
 
     console.log('DOM fully loaded');
+
+    if (!progressChartContainer) {
+        console.error('Progress chart container not found. Please check the HTML for an element with class "chart-container"');
+    } else {
+        console.log('Progress chart container found');
+    }
+
+    if (!progressChart) {
+        console.error('Progress chart canvas not found. Please check the HTML for a canvas element with id "progress-chart"');
+    } else {
+        console.log('Progress chart canvas found');
+    }
 
     // Fetch tasks after DOM is loaded
     fetchTasks();
@@ -43,10 +57,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const aTasks = tasks.filter(task => task.user_id === 2);
                 renderTasks(gTasks, taskLists[0]);
                 renderTasks(aTasks, taskLists[1]);
-                updateProgress(); // Call updateProgress after tasks are fetched
+                updateProgress();
             })
             .catch(error => {
                 console.error('Error fetching tasks:', error);
+                displayErrorMessage('Failed to fetch tasks. Please try refreshing the page.');
             });
     }
 
@@ -96,6 +111,10 @@ document.addEventListener('DOMContentLoaded', function() {
             input.value = '';
             addTaskEventListeners();
             updateProgress();
+        })
+        .catch(error => {
+            console.error('Error adding task:', error);
+            displayErrorMessage('Failed to add task. Please try again.');
         });
     }
 
@@ -116,6 +135,10 @@ document.addEventListener('DOMContentLoaded', function() {
             taskContent.classList.toggle('task-completed');
             e.target.textContent = completed ? 'Undo' : 'Complete';
             updateProgress();
+        })
+        .catch(error => {
+            console.error('Error toggling task:', error);
+            displayErrorMessage('Failed to update task. Please try again.');
         });
     }
 
@@ -127,24 +150,27 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(() => {
             e.target.closest('.task-item').remove();
             updateProgress();
+        })
+        .catch(error => {
+            console.error('Error deleting task:', error);
+            displayErrorMessage('Failed to delete task. Please try again.');
         });
     }
 
-    function initChart() {
+    function initChart(labels, gData, aData) {
         console.log('Initializing chart');
-        const ctx = document.getElementById('progress-chart');
-        if (!ctx) {
+        if (!progressChart) {
             console.error('Progress chart canvas not found');
             return null;
         }
-        return new Chart(ctx, {
+        return new Chart(progressChart, {
             type: 'line',
             data: {
-                labels: [],
+                labels: labels,
                 datasets: [
                     {
                         label: 'G\'s Progress',
-                        data: [],
+                        data: gData,
                         borderColor: 'rgba(72, 187, 120, 1)',
                         backgroundColor: 'rgba(72, 187, 120, 0.2)',
                         pointRadius: 5,
@@ -153,7 +179,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     },
                     {
                         label: 'A\'s Progress',
-                        data: [],
+                        data: aData,
                         borderColor: 'rgba(66, 153, 225, 1)',
                         backgroundColor: 'rgba(66, 153, 225, 0.2)',
                         pointRadius: 5,
@@ -215,14 +241,16 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`/progress?timeframe=${timeframe}`)
             .then(response => {
                 console.log('Progress response received');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 return response.json();
             })
             .then(data => {
                 console.log('Progress data received:', data);
 
-                if (!data || (!data['G'] && !data['A'])) {
-                    console.error('Invalid or empty data received');
-                    return;
+                if (!data || typeof data !== 'object') {
+                    throw new Error('Invalid data received');
                 }
 
                 const gProgress = data['G'] || [];
@@ -231,45 +259,94 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('G Progress:', gProgress);
                 console.log('A Progress:', aProgress);
 
+                if (gProgress.length === 0 && aProgress.length === 0) {
+                    console.log('No progress data available');
+                    displayNoDataMessage();
+                    return;
+                }
+
                 const labels = [...new Set([...gProgress.map(p => p.date), ...aProgress.map(p => p.date)])].sort();
 
                 console.log('Labels:', labels);
 
-                if (!chart) {
-                    chart = initChart();
-                    if (!chart) {
-                        console.error('Failed to initialize chart');
-                        return;
-                    }
-                }
-
-                chart.data.labels = labels;
-                chart.data.datasets[0].data = labels.map(date => {
+                const gData = labels.map(date => {
                     const progress = gProgress.find(p => p.date === date);
                     return progress ? { x: date, y: progress.completion_percentage } : null;
                 });
-                chart.data.datasets[1].data = labels.map(date => {
+
+                const aData = labels.map(date => {
                     const progress = aProgress.find(p => p.date === date);
                     return progress ? { x: date, y: progress.completion_percentage } : null;
                 });
 
-                console.log('Updated chart data:', chart.data);
+                if (chart) {
+                    chart.destroy();
+                }
 
-                chart.options.scales.x.time.unit = timeframe <= 7 ? 'day' : 'week';
-                chart.update();
-                console.log('Chart updated');
+                chart = initChart(labels, gData, aData);
+
+                if (!chart) {
+                    throw new Error('Failed to initialize chart');
+                }
+
+                console.log('Chart initialized:', chart);
 
                 // Update progress text
                 const latestGProgress = gProgress[gProgress.length - 1] || { completion_percentage: 0, completed_tasks: 0, total_tasks: 0 };
                 const latestAProgress = aProgress[aProgress.length - 1] || { completion_percentage: 0, completed_tasks: 0, total_tasks: 0 };
 
-                document.getElementById('g-progress').textContent = `${latestGProgress.completion_percentage.toFixed(2)}% (${latestGProgress.completed_tasks}/${latestGProgress.total_tasks})`;
-                document.getElementById('a-progress').textContent = `${latestAProgress.completion_percentage.toFixed(2)}% (${latestAProgress.completed_tasks}/${latestAProgress.total_tasks})`;
-                console.log('Progress text updated');
+                const gProgressElement = document.getElementById('g-progress');
+                const aProgressElement = document.getElementById('a-progress');
+
+                if (gProgressElement && aProgressElement) {
+                    gProgressElement.textContent = `${latestGProgress.completion_percentage.toFixed(2)}% (${latestGProgress.completed_tasks}/${latestGProgress.total_tasks})`;
+                    aProgressElement.textContent = `${latestAProgress.completion_percentage.toFixed(2)}% (${latestAProgress.completed_tasks}/${latestAProgress.total_tasks})`;
+                    console.log('Progress text updated');
+                } else {
+                    console.error('Progress elements not found');
+                }
+
+                // Show the chart container
+                if (progressChartContainer) {
+                    progressChartContainer.style.display = 'block';
+                } else {
+                    console.error('Progress chart container not found');
+                }
             })
             .catch(error => {
-                console.error('Error fetching progress data:', error);
+                console.error('Error fetching or processing progress data:', error);
+                displayErrorMessage('Failed to load progress data. Please try again later.');
             });
+    }
+
+    function displayErrorMessage(message) {
+        console.error('Displaying error message:', message);
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
+        if (progressChartContainer) {
+            progressChartContainer.innerHTML = '';
+            progressChartContainer.appendChild(errorDiv);
+            progressChartContainer.style.display = 'block';
+        } else {
+            console.error('Progress chart container not found');
+            document.body.appendChild(errorDiv);
+        }
+    }
+
+    function displayNoDataMessage() {
+        console.log('Displaying no data message');
+        const noDataDiv = document.createElement('div');
+        noDataDiv.className = 'no-data-message';
+        noDataDiv.textContent = 'No progress data available for the selected timeframe.';
+        if (progressChartContainer) {
+            progressChartContainer.innerHTML = '';
+            progressChartContainer.appendChild(noDataDiv);
+            progressChartContainer.style.display = 'block';
+        } else {
+            console.error('Progress chart container not found');
+            document.body.appendChild(noDataDiv);
+        }
     }
 
     function exportData() {
@@ -279,6 +356,9 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`/export?timeframe=${timeframe}`)
             .then(response => {
                 console.log('Export response received');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 return response.json();
             })
             .then(data => {
@@ -296,6 +376,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error('Export error:', error);
+                displayErrorMessage('Failed to export data. Please try again later.');
             });
     }
 });
