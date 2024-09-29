@@ -63,20 +63,29 @@ def get_progress():
     
     start_date = datetime.utcnow().date() - timedelta(days=timeframe)
     
-    progress = db.session.query(
+    daily_progress = db.session.query(
         User.name,
+        func.date(Task.date_created).label('date'),
         func.count(Task.id).label('total_tasks'),
         func.sum(Task.completed.cast(db.Integer)).label('completed_tasks')
     ).join(Task).filter(
         func.date(Task.date_created) >= start_date
-    ).group_by(User.name).all()
+    ).group_by(User.name, func.date(Task.date_created)).all()
     
-    return jsonify([{
-        'name': p.name,
-        'total_tasks': p.total_tasks,
-        'completed_tasks': p.completed_tasks,
-        'completion_percentage': round((p.completed_tasks / p.total_tasks) * 100, 2) if p.total_tasks > 0 else 0
-    } for p in progress])
+    progress_data = {}
+    for p in daily_progress:
+        if p.name not in progress_data:
+            progress_data[p.name] = []
+        
+        completion_percentage = round((p.completed_tasks / p.total_tasks) * 100, 2) if p.total_tasks > 0 else 0
+        progress_data[p.name].append({
+            'date': p.date.isoformat(),
+            'total_tasks': p.total_tasks,
+            'completed_tasks': p.completed_tasks,
+            'completion_percentage': completion_percentage
+        })
+    
+    return jsonify(progress_data)
 
 @app.route('/export', methods=['GET'])
 def export_data():

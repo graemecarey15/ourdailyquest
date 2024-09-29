@@ -133,20 +133,35 @@ document.addEventListener('DOMContentLoaded', function() {
     function initChart() {
         const ctx = document.getElementById('progress-chart').getContext('2d');
         chart = new Chart(ctx, {
-            type: 'bar',
+            type: 'line',
             data: {
-                labels: ['G', 'A'],
-                datasets: [{
-                    label: 'Completion Percentage',
-                    data: [0, 0],
-                    backgroundColor: ['rgba(72, 187, 120, 0.8)', 'rgba(66, 153, 225, 0.8)'],
-                    borderColor: ['rgb(72, 187, 120)', 'rgb(66, 153, 225)'],
-                    borderWidth: 1
-                }]
+                labels: [],
+                datasets: [
+                    {
+                        label: 'G\'s Progress',
+                        data: [],
+                        borderColor: 'rgba(72, 187, 120, 1)',
+                        backgroundColor: 'rgba(72, 187, 120, 0.2)',
+                        tension: 0.1
+                    },
+                    {
+                        label: 'A\'s Progress',
+                        data: [],
+                        borderColor: 'rgba(66, 153, 225, 1)',
+                        backgroundColor: 'rgba(66, 153, 225, 0.2)',
+                        tension: 0.1
+                    }
+                ]
             },
             options: {
                 responsive: true,
                 scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'day'
+                        }
+                    },
                     y: {
                         beginAtZero: true,
                         max: 100,
@@ -161,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                return context.parsed.y.toFixed(2) + '%';
+                                return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
                             }
                         }
                     }
@@ -175,15 +190,30 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`/progress?timeframe=${timeframe}`)
             .then(response => response.json())
             .then(data => {
-                const gProgress = data.find(p => p.name === 'G') || { completion_percentage: 0, completed_tasks: 0, total_tasks: 0 };
-                const aProgress = data.find(p => p.name === 'A') || { completion_percentage: 0, completed_tasks: 0, total_tasks: 0 };
-                
-                chart.data.datasets[0].data = [gProgress.completion_percentage, aProgress.completion_percentage];
-                chart.data.datasets[0].label = `Completion Percentage (Last ${timeframe} days)`;
+                const gProgress = data['G'] || [];
+                const aProgress = data['A'] || [];
+
+                const labels = [...new Set([...gProgress.map(p => p.date), ...aProgress.map(p => p.date)])].sort();
+
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = labels.map(date => {
+                    const progress = gProgress.find(p => p.date === date);
+                    return progress ? progress.completion_percentage : null;
+                });
+                chart.data.datasets[1].data = labels.map(date => {
+                    const progress = aProgress.find(p => p.date === date);
+                    return progress ? progress.completion_percentage : null;
+                });
+
+                chart.options.scales.x.time.unit = timeframe <= 7 ? 'day' : 'week';
                 chart.update();
 
-                document.getElementById('g-progress').textContent = `${gProgress.completion_percentage.toFixed(2)}% (${gProgress.completed_tasks}/${gProgress.total_tasks})`;
-                document.getElementById('a-progress').textContent = `${aProgress.completion_percentage.toFixed(2)}% (${aProgress.completed_tasks}/${aProgress.total_tasks})`;
+                // Update progress text
+                const latestGProgress = gProgress[gProgress.length - 1] || { completion_percentage: 0, completed_tasks: 0, total_tasks: 0 };
+                const latestAProgress = aProgress[aProgress.length - 1] || { completion_percentage: 0, completed_tasks: 0, total_tasks: 0 };
+
+                document.getElementById('g-progress').textContent = `${latestGProgress.completion_percentage.toFixed(2)}% (${latestGProgress.completed_tasks}/${latestGProgress.total_tasks})`;
+                document.getElementById('a-progress').textContent = `${latestAProgress.completion_percentage.toFixed(2)}% (${latestAProgress.completed_tasks}/${latestAProgress.total_tasks})`;
             });
     }
 
