@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Fetch tasks after DOM is loaded
     fetchTasks();
-    initChart();
     updateProgress();
 
     taskForms.forEach(form => {
@@ -44,6 +43,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const aTasks = tasks.filter(task => task.user_id === 2);
                 renderTasks(gTasks, taskLists[0]);
                 renderTasks(aTasks, taskLists[1]);
+                updateProgress(); // Call updateProgress after tasks are fetched
             })
             .catch(error => {
                 console.error('Error fetching tasks:', error);
@@ -131,8 +131,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function initChart() {
-        const ctx = document.getElementById('progress-chart').getContext('2d');
-        chart = new Chart(ctx, {
+        console.log('Initializing chart');
+        const ctx = document.getElementById('progress-chart');
+        if (!ctx) {
+            console.error('Progress chart canvas not found');
+            return null;
+        }
+        return new Chart(ctx, {
             type: 'line',
             data: {
                 labels: [],
@@ -142,6 +147,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         data: [],
                         borderColor: 'rgba(72, 187, 120, 1)',
                         backgroundColor: 'rgba(72, 187, 120, 0.2)',
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
                         tension: 0.1
                     },
                     {
@@ -149,6 +156,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         data: [],
                         borderColor: 'rgba(66, 153, 225, 1)',
                         backgroundColor: 'rgba(66, 153, 225, 0.2)',
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
                         tension: 0.1
                     }
                 ]
@@ -159,12 +168,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     x: {
                         type: 'time',
                         time: {
-                            unit: 'day'
+                            unit: 'day',
+                            displayFormats: {
+                                day: 'MMM d'
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Date'
                         }
                     },
                     y: {
                         beginAtZero: true,
                         max: 100,
+                        title: {
+                            display: true,
+                            text: 'Completion Percentage'
+                        },
                         ticks: {
                             callback: function(value) {
                                 return value + '%';
@@ -179,6 +199,10 @@ document.addEventListener('DOMContentLoaded', function() {
                                 return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
                             }
                         }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
                     }
                 }
             }
@@ -186,27 +210,54 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateProgress() {
+        console.log('updateProgress function called');
         const timeframe = timeframeSelect.value;
         fetch(`/progress?timeframe=${timeframe}`)
-            .then(response => response.json())
+            .then(response => {
+                console.log('Progress response received');
+                return response.json();
+            })
             .then(data => {
+                console.log('Progress data received:', data);
+
+                if (!data || (!data['G'] && !data['A'])) {
+                    console.error('Invalid or empty data received');
+                    return;
+                }
+
                 const gProgress = data['G'] || [];
                 const aProgress = data['A'] || [];
 
+                console.log('G Progress:', gProgress);
+                console.log('A Progress:', aProgress);
+
                 const labels = [...new Set([...gProgress.map(p => p.date), ...aProgress.map(p => p.date)])].sort();
+
+                console.log('Labels:', labels);
+
+                if (!chart) {
+                    chart = initChart();
+                    if (!chart) {
+                        console.error('Failed to initialize chart');
+                        return;
+                    }
+                }
 
                 chart.data.labels = labels;
                 chart.data.datasets[0].data = labels.map(date => {
                     const progress = gProgress.find(p => p.date === date);
-                    return progress ? progress.completion_percentage : null;
+                    return progress ? { x: date, y: progress.completion_percentage } : null;
                 });
                 chart.data.datasets[1].data = labels.map(date => {
                     const progress = aProgress.find(p => p.date === date);
-                    return progress ? progress.completion_percentage : null;
+                    return progress ? { x: date, y: progress.completion_percentage } : null;
                 });
+
+                console.log('Updated chart data:', chart.data);
 
                 chart.options.scales.x.time.unit = timeframe <= 7 ? 'day' : 'week';
                 chart.update();
+                console.log('Chart updated');
 
                 // Update progress text
                 const latestGProgress = gProgress[gProgress.length - 1] || { completion_percentage: 0, completed_tasks: 0, total_tasks: 0 };
@@ -214,6 +265,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 document.getElementById('g-progress').textContent = `${latestGProgress.completion_percentage.toFixed(2)}% (${latestGProgress.completed_tasks}/${latestGProgress.total_tasks})`;
                 document.getElementById('a-progress').textContent = `${latestAProgress.completion_percentage.toFixed(2)}% (${latestAProgress.completed_tasks}/${latestAProgress.total_tasks})`;
+                console.log('Progress text updated');
+            })
+            .catch(error => {
+                console.error('Error fetching progress data:', error);
             });
     }
 
