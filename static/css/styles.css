@@ -119,6 +119,38 @@ body {
     height: 300px;
 }
 
+/* New styles for the date selector */
+#timeframe-select {
+    background-color: #4a5568;
+    color: #e2e8f0;
+    border: 1px solid #718096;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    font-size: 1rem;
+    width: 100%;
+    max-width: 200px;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23e2e8f0' viewBox='0 0 12 12'%3E%3Cpath d='M10.293 3.293 6 7.586 1.707 3.293A1 1 0 0 0 .293 4.707l5 5a1 1 0 0 0 1.414 0l5-5a1 1 0 1 0-1.414-1.414z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 0.75rem;
+}
+
+#timeframe-select:hover, #timeframe-select:focus {
+    border-color: #4299e1;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5);
+}
+
+#timeframe-select option {
+    background-color: #2d3748;
+    color: #e2e8f0;
+}
+
 @media (max-width: 640px) {
     .container {
         padding: 1rem;
