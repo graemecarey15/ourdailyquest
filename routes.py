@@ -4,10 +4,12 @@ from models import User, Task
 from sqlalchemy import func
 import json
 from datetime import datetime, timedelta
+import pytz
 
 @app.route('/')
 def index():
-    current_date = datetime.now().strftime("%A, %B %d, %Y")
+    est_tz = pytz.timezone('US/Eastern')
+    current_date = datetime.now(est_tz).strftime("%A, %B %d, %Y")
     return render_template('index.html', current_date=current_date)
 
 @app.route('/tasks', methods=['GET'])
@@ -94,7 +96,6 @@ def get_progress():
         
         app.logger.debug(f"Processed progress data: {json.dumps(progress_data)}")
         
-        # If no data is available, return an empty object for each user
         if not progress_data:
             progress_data = {'G': [], 'A': []}
         
