@@ -14,8 +14,32 @@
         <p class="text-center mb-4">Embark on a journey of self-improvement with G and A</p>
         <p class="text-center mb-4 current-date" id="current-date">{{ current_date }} (EST)</p>
 
-        <!-- Rest of the HTML remains unchanged -->
+        {% for user in ['G', 'A'] %}
+        <div class="user-section">
+            <h2 class="user-title">{{ user }}'s Quests</h2>
+            <form class="task-form" data-user-id="{{ loop.index }}">
+                <input type="text" name="task" placeholder="Enter a new quest" required>
+                <button type="submit" class="btn btn-primary">Embark</button>
+            </form>
+            <ul class="task-list"></ul>
+        </div>
+        {% endfor %}
 
+        <div class="progress-section">
+            <h2 class="progress-title">Progress</h2>
+            <p>G's Progress: <span id="g-progress"></span></p>
+            <p>A's Progress: <span id="a-progress"></span></p>
+            <select id="timeframe-select">
+                <option value="7">Last 7 days</option>
+                <option value="30" selected>Last 30 days</option>
+                <option value="90">Last 90 days</option>
+            </select>
+            <div class="chart-container">
+                <canvas id="progress-chart"></canvas>
+            </div>
+        </div>
+
+        <button id="export-btn" class="btn btn-primary">Export Data</button>
     </div>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
