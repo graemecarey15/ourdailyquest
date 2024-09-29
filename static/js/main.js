@@ -21,7 +21,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Progress chart canvas found');
     }
 
-    // Fetch tasks after DOM is loaded
     fetchTasks();
     updateProgress();
 
@@ -159,80 +158,107 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function initChart(labels, gData, aData) {
         console.log('Initializing chart');
+        console.log('Labels:', labels);
+        console.log('G Data:', gData);
+        console.log('A Data:', aData);
+
         if (!progressChart) {
             console.error('Progress chart canvas not found');
             return null;
         }
-        return new Chart(progressChart, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'G\'s Progress',
-                        data: gData,
-                        borderColor: 'rgba(72, 187, 120, 1)',
-                        backgroundColor: 'rgba(72, 187, 120, 0.2)',
-                        pointRadius: 5,
-                        pointHoverRadius: 7,
-                        tension: 0.1
-                    },
-                    {
-                        label: 'A\'s Progress',
-                        data: aData,
-                        borderColor: 'rgba(66, 153, 225, 1)',
-                        backgroundColor: 'rgba(66, 153, 225, 0.2)',
-                        pointRadius: 5,
-                        pointHoverRadius: 7,
-                        tension: 0.1
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: {
-                            unit: 'day',
-                            displayFormats: {
-                                day: 'MMM d'
-                            }
+
+        if (chart) {
+            chart.destroy();
+        }
+
+        if (!Array.isArray(gData) || !Array.isArray(aData)) {
+            console.error('Invalid data format. Expected arrays for gData and aData.');
+            return null;
+        }
+
+        const filteredGData = gData.filter(point => point !== null);
+        const filteredAData = aData.filter(point => point !== null);
+
+        console.log('Filtered G Data:', filteredGData);
+        console.log('Filtered A Data:', filteredAData);
+
+        try {
+            chart = new Chart(progressChart, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'G\'s Progress',
+                            data: filteredGData,
+                            borderColor: 'rgba(72, 187, 120, 1)',
+                            backgroundColor: 'rgba(72, 187, 120, 0.2)',
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            tension: 0.1
                         },
-                        title: {
-                            display: true,
-                            text: 'Date'
+                        {
+                            label: 'A\'s Progress',
+                            data: filteredAData,
+                            borderColor: 'rgba(66, 153, 225, 1)',
+                            backgroundColor: 'rgba(66, 153, 225, 0.2)',
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            tension: 0.1
                         }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        max: 100,
-                        title: {
-                            display: true,
-                            text: 'Completion Percentage'
-                        },
-                        ticks: {
-                            callback: function(value) {
-                                return value + '%';
-                            }
-                        }
-                    }
+                    ]
                 },
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                displayFormats: {
+                                    day: 'MMM d'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Completion Percentage'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
                             }
                         }
                     },
-                    legend: {
-                        display: true,
-                        position: 'top'
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
+                                }
+                            }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
                     }
                 }
-            }
-        });
+            });
+            console.log('Chart initialized successfully');
+            return chart;
+        } catch (error) {
+            console.error('Error initializing chart:', error);
+            return null;
+        }
     }
 
     function updateProgress() {
@@ -271,46 +297,51 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const gData = labels.map(date => {
                     const progress = gProgress.find(p => p.date === date);
-                    return progress ? { x: date, y: progress.completion_percentage } : null;
+                    return progress ? { x: new Date(date), y: progress.completion_percentage } : null;
                 });
 
                 const aData = labels.map(date => {
                     const progress = aProgress.find(p => p.date === date);
-                    return progress ? { x: date, y: progress.completion_percentage } : null;
+                    return progress ? { x: new Date(date), y: progress.completion_percentage } : null;
                 });
 
-                if (chart) {
-                    chart.destroy();
-                }
+                console.log('Processed G Data:', gData);
+                console.log('Processed A Data:', aData);
 
-                chart = initChart(labels, gData, aData);
+                try {
+                    chart = initChart(labels, gData, aData);
 
-                if (!chart) {
-                    throw new Error('Failed to initialize chart');
-                }
+                    if (!chart) {
+                        throw new Error('Failed to initialize chart');
+                    }
 
-                console.log('Chart initialized:', chart);
+                    console.log('Chart initialized:', chart);
 
-                // Update progress text
-                const latestGProgress = gProgress[gProgress.length - 1] || { completion_percentage: 0, completed_tasks: 0, total_tasks: 0 };
-                const latestAProgress = aProgress[aProgress.length - 1] || { completion_percentage: 0, completed_tasks: 0, total_tasks: 0 };
+                    const latestGProgress = gProgress[gProgress.length - 1] || { completion_percentage: 0, completed_tasks: 0, total_tasks: 0 };
+                    const latestAProgress = aProgress[aProgress.length - 1] || { completion_percentage: 0, completed_tasks: 0, total_tasks: 0 };
 
-                const gProgressElement = document.getElementById('g-progress');
-                const aProgressElement = document.getElementById('a-progress');
+                    const gProgressElement = document.getElementById('g-progress');
+                    const aProgressElement = document.getElementById('a-progress');
 
-                if (gProgressElement && aProgressElement) {
-                    gProgressElement.textContent = `${latestGProgress.completion_percentage.toFixed(2)}% (${latestGProgress.completed_tasks}/${latestGProgress.total_tasks})`;
-                    aProgressElement.textContent = `${latestAProgress.completion_percentage.toFixed(2)}% (${latestAProgress.completed_tasks}/${latestAProgress.total_tasks})`;
-                    console.log('Progress text updated');
-                } else {
-                    console.error('Progress elements not found');
-                }
+                    if (gProgressElement && aProgressElement) {
+                        gProgressElement.textContent = `${latestGProgress.completion_percentage.toFixed(2)}% (${latestGProgress.completed_tasks}/${latestGProgress.total_tasks})`;
+                        aProgressElement.textContent = `${latestAProgress.completion_percentage.toFixed(2)}% (${latestAProgress.completed_tasks}/${latestAProgress.total_tasks})`;
+                        console.log('Progress text updated');
+                    } else {
+                        console.error('Progress elements not found');
+                    }
 
-                // Show the chart container
-                if (progressChartContainer) {
-                    progressChartContainer.style.display = 'block';
-                } else {
-                    console.error('Progress chart container not found');
+                    if (progressChartContainer) {
+                        progressChartContainer.style.display = 'block';
+                        console.log('Chart container display set to block');
+                        progressChartContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        console.log('Scrolled to chart container');
+                    } else {
+                        console.error('Progress chart container not found');
+                    }
+                } catch (error) {
+                    console.error('Error during chart initialization:', error);
+                    displayErrorMessage('Failed to initialize chart. Please try again later.');
                 }
             })
             .catch(error => {
